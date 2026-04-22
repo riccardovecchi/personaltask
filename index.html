@@ -2,7 +2,10 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
     <title>Task Manager Professional</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -20,13 +23,16 @@
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
                 <button class="nav-tab active" data-view="tasks">
-                    <span class="icon">✓</span> Task
+                    <span class="icon">✓</span>
+                    <span>Task</span>
                 </button>
                 <button class="nav-tab" data-view="projects">
-                    <span class="icon">📁</span> Progetti
+                    <span class="icon">📁</span>
+                    <span>Progetti</span>
                 </button>
                 <button class="nav-tab" data-view="notes">
-                    <span class="icon">📝</span> Note
+                    <span class="icon">📝</span>
+                    <span>Note</span>
                 </button>
             </div>
 
@@ -331,6 +337,14 @@
             </form>
         </div>
     </div>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle">
+        ☰
+    </button>
+
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobile-overlay"></div>
 
     <script src="app.js"></script>
 </body>
