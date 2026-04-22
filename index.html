@@ -1,350 +1,340 @@
+Creerò un Task Manager personale completo con tutte le caratteristiche richieste. Sarà un'applicazione web moderna con design scuro e minimal, strutturata con file separati e un server Python per l'hosting locale.
+
+Perfetto! Ora creo tutti i file per il tuo Task Manager personale. Ecco la struttura completa:
+
+1. server.py - Server Python Flask
+#!/usr/bin/env python3
+"""
+Personal Task Manager Server
+Hosts a local task management application on 0.0.0.0:5000
+Accessible via local network or Tailscale
+"""
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+import json
+import os
+from datetime import datetime
+import uuid
+
+app = Flask(__name__, static_folder='.')
+CORS(app)
+
+# Data storage file
+DATA_FILE = 'taskmanager_data.json'
+
+# Initialize data structure
+def init_data():
+    return {
+        'areas': [],
+        'projects': [],
+        'tasks': [],
+        'notes': []
+    }
+
+# Load data from file
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return init_data()
+    return init_data()
+
+# Save data to file
+def save_data(data):
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+# Serve the main HTML file
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+# Serve static files
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory('.', path)
+
+# API: Get all data
+@app.route('/api/data', methods=['GET'])
+def get_data():
+    data = load_data()
+    return jsonify(data)
+
+# API: Create area
+@app.route('/api/areas', methods=['POST'])
+def create_area():
+    data = load_data()
+    area = request.json
+    area['id'] = str(uuid.uuid4())
+    area['created_at'] = datetime.now().isoformat()
+    data['areas'].append(area)
+    save_data(data)
+    return jsonify(area), 201
+
+# API: Update area
+@app.route('/api/areas/<area_id>', methods=['PUT'])
+def update_area(area_id):
+    data = load_data()
+    for area in data['areas']:
+        if area['id'] == area_id:
+            area.update(request.json)
+            area['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(area)
+    return jsonify({'error': 'Area not found'}), 404
+
+# API: Delete area
+@app.route('/api/areas/<area_id>', methods=['DELETE'])
+def delete_area(area_id):
+    data = load_data()
+    data['areas'] = [a for a in data['areas'] if a['id'] != area_id]
+    # Also delete related projects, tasks, and notes
+    data['projects'] = [p for p in data['projects'] if p.get('area_id') != area_id]
+    save_data(data)
+    return '', 204
+
+# API: Create project
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    data = load_data()
+    project = request.json
+    project['id'] = str(uuid.uuid4())
+    project['created_at'] = datetime.now().isoformat()
+    data['projects'].append(project)
+    save_data(data)
+    return jsonify(project), 201
+
+# API: Update project
+@app.route('/api/projects/<project_id>', methods=['PUT'])
+def update_project(project_id):
+    data = load_data()
+    for project in data['projects']:
+        if project['id'] == project_id:
+            project.update(request.json)
+            project['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(project)
+    return jsonify({'error': 'Project not found'}), 404
+
+# API: Delete project
+@app.route('/api/projects/<project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    data = load_data()
+    data['projects'] = [p for p in data['projects'] if p['id'] != project_id]
+    # Also delete related tasks
+    data['tasks'] = [t for t in data['tasks'] if t.get('project_id') != project_id]
+    save_data(data)
+    return '', 204
+
+# API: Create task
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    data = load_data()
+    task = request.json
+    task['id'] = str(uuid.uuid4())
+    task['created_at'] = datetime.now().isoformat()
+    task['completed'] = False
+    data['tasks'].append(task)
+    save_data(data)
+    return jsonify(task), 201
+
+# API: Update task
+@app.route('/api/tasks/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    data = load_data()
+    for task in data['tasks']:
+        if task['id'] == task_id:
+            task.update(request.json)
+            task['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(task)
+    return jsonify({'error': 'Task not found'}), 404
+
+# API: Delete task
+@app.route('/api/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    data = load_data()
+    data['tasks'] = [t for t in data['tasks'] if t['id'] != task_id]
+    save_data(data)
+    return '', 204
+
+# API: Create note
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    data = load_data()
+    note = request.json
+    note['id'] = str(uuid.uuid4())
+    note['created_at'] = datetime.now().isoformat()
+    data['notes'].append(note)
+    save_data(data)
+    return jsonify(note), 201
+
+# API: Update note
+@app.route('/api/notes/<note_id>', methods=['PUT'])
+def update_note(note_id):
+    data = load_data()
+    for note in data['notes']:
+        if note['id'] == note_id:
+            note.update(request.json)
+            note['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(note)
+    return jsonify({'error': 'Note not found'}), 404
+
+# API: Delete note
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    data = load_data()
+    data['notes'] = [n for n in data['notes'] if n['id'] != note_id]
+    save_data(data)
+    return '', 204
+
+if __name__ == '__main__':
+    print("=" * 60)
+    print("Personal Task Manager Server")
+    print("=" * 60)
+    print(f"Server starting on http://0.0.0.0:5000")
+    print(f"Access locally: http://localhost:5000")
+    print(f"Access on network: http://[your-local-ip]:5000")
+    print(f"Access via Tailscale: http://[your-tailscale-ip]:5000")
+    print("=" * 60)
+    app.run(host='0.0.0.0', port=5000, debug=True)
+2. index.html - Struttura HTML
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0a0a0a">
-    <title>Task Manager Professional</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager Personale</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>📋 Task Manager</h1>
-                <button class="btn-backup" id="btn-backup" title="Scarica Backup">
-                    💾
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>Task Manager</h1>
+            <button class="btn-icon" id="addAreaBtn" title="Aggiungi Area">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="areas-list" id="areasList">
+            <!-- Areas will be dynamically loaded here -->
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="content-header">
+            <div class="header-info">
+                <h2 id="areaTitle">Seleziona un'area</h2>
+                <p id="areaDescription" class="text-muted"></p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="editAreaBtn" title="Modifica Area" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+                <button class="btn-icon" id="deleteAreaBtn" title="Elimina Area" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
                 </button>
             </div>
+        </header>
 
-            <!-- Navigation Tabs -->
-            <div class="nav-tabs">
-                <button class="nav-tab active" data-view="tasks">
-                    <span class="icon">✓</span>
-                    <span>Task</span>
-                </button>
-                <button class="nav-tab" data-view="projects">
-                    <span class="icon">📁</span>
-                    <span>Progetti</span>
-                </button>
-                <button class="nav-tab" data-view="notes">
-                    <span class="icon">📝</span>
-                    <span>Note</span>
-                </button>
-            </div>
-
-            <!-- Filtri Task -->
-            <div class="sidebar-section" id="filters-tasks">
-                <h3>Filtri</h3>
-                <button class="filter-btn active" data-filter="all">
-                    <span class="icon">📋</span> Tutti i Task
-                    <span class="count" id="count-all">0</span>
-                </button>
-                <button class="filter-btn" data-filter="active">
-                    <span class="icon">⚡</span> Attivi
-                    <span class="count" id="count-active">0</span>
-                </button>
-                <button class="filter-btn" data-filter="completed">
-                    <span class="icon">✓</span> Completati
-                    <span class="count" id="count-completed">0</span>
-                </button>
-            </div>
-
-            <!-- Categorie -->
-            <div class="sidebar-section">
-                <h3>Categorie</h3>
-                <div class="categories-list">
-                    <button class="category-btn" data-category="Lavoro">
-                        <span class="category-dot" style="background: #3b82f6;"></span> Lavoro
-                    </button>
-                    <button class="category-btn" data-category="Personale">
-                        <span class="category-dot" style="background: #8b5cf6;"></span> Personale
-                    </button>
-                    <button class="category-btn" data-category="Salute">
-                        <span class="category-dot" style="background: #10b981;"></span> Salute
-                    </button>
-                    <button class="category-btn" data-category="Finanze">
-                        <span class="category-dot" style="background: #f59e0b;"></span> Finanze
-                    </button>
-                    <button class="category-btn" data-category="Casa">
-                        <span class="category-dot" style="background: #ec4899;"></span> Casa
-                    </button>
-                    <button class="category-btn" data-category="Hobby">
-                        <span class="category-dot" style="background: #06b6d4;"></span> Hobby
-                    </button>
-                    <button class="category-btn" data-category="Studio">
-                        <span class="category-dot" style="background: #6366f1;"></span> Studio
-                    </button>
-                    <button class="category-btn" data-category="Sport">
-                        <span class="category-dot" style="background: #14b8a6;"></span> Sport
-                    </button>
-                    <button class="category-btn" data-category="Famiglia">
-                        <span class="category-dot" style="background: #f43f5e;"></span> Famiglia
-                    </button>
-                    <button class="category-btn" data-category="Progetti">
-                        <span class="category-dot" style="background: #a855f7;"></span> Progetti
-                    </button>
-                    <button class="category-btn" data-category="Shopping">
-                        <span class="category-dot" style="background: #eab308;"></span> Shopping
-                    </button>
-                    <button class="category-btn" data-category="Viaggi">
-                        <span class="category-dot" style="background: #0ea5e9;"></span> Viaggi
+        <!-- Content Grid -->
+        <div class="content-grid" id="contentGrid" style="display: none;">
+            <!-- Projects Section -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Progetti</h3>
+                    <button class="btn-add" id="addProjectBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuovo Progetto
                     </button>
                 </div>
-            </div>
-
-            <!-- Priorità (solo per task) -->
-            <div class="sidebar-section" id="filters-priority">
-                <h3>Priorità</h3>
-                <button class="priority-btn" data-priority="alta">
-                    <span class="priority-indicator high"></span> Alta
-                </button>
-                <button class="priority-btn" data-priority="media">
-                    <span class="priority-indicator medium"></span> Media
-                </button>
-                <button class="priority-btn" data-priority="bassa">
-                    <span class="priority-indicator low"></span> Bassa
-                </button>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="top-bar">
-                <div class="search-container">
-                    <input type="text" id="search-input" placeholder="Cerca..." class="search-input">
+                <div class="projects-list" id="projectsList">
+                    <!-- Projects will be loaded here -->
                 </div>
-                <button class="btn-primary" id="btn-new-item">
-                    <span class="icon">+</span> <span id="btn-new-text">Nuovo Task</span>
-                </button>
-            </div>
+            </section>
 
-            <!-- Container Tasks -->
-            <div class="content-view active" id="view-tasks">
-                <div class="tasks-container" id="tasks-container">
-                    <!-- Tasks inseriti dinamicamente -->
+            <!-- Tasks Section -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Task</h3>
+                    <button class="btn-add" id="addTaskBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuovo Task
+                    </button>
                 </div>
-            </div>
-
-            <!-- Container Projects -->
-            <div class="content-view" id="view-projects">
-                <div class="projects-container" id="projects-container">
-                    <!-- Projects inseriti dinamicamente -->
+                <div class="tasks-list" id="tasksList">
+                    <!-- Tasks will be loaded here -->
                 </div>
-            </div>
+            </section>
 
-            <!-- Container Notes -->
-            <div class="content-view" id="view-notes">
-                <div class="notes-container" id="notes-container">
-                    <!-- Notes inserite dinamicamente -->
+            <!-- Notes Section -->
+            <section class="content-section full-width">
+                <div class="section-header">
+                    <h3>Note</h3>
+                    <button class="btn-add" id="addNoteBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuova Nota
+                    </button>
                 </div>
-            </div>
-        </main>
-    </div>
+                <div class="notes-list" id="notesList">
+                    <!-- Notes will be loaded here -->
+                </div>
+            </section>
+        </div>
 
-    <!-- Modal Task -->
-    <div class="modal" id="task-modal">
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <h3>Benvenuto nel tuo Task Manager</h3>
+            <p>Inizia creando un'area della tua vita dalla sidebar</p>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="task-modal-title">Nuovo Task</h2>
-                <button class="btn-close" id="btn-close-task-modal">&times;</button>
+                <h3 id="modalTitle">Modal</h3>
+                <button class="btn-icon" id="closeModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <form id="task-form">
-                <div class="form-group">
-                    <label for="task-title">Titolo *</label>
-                    <input type="text" id="task-title" required placeholder="Es. Completare report mensile">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="task-category">Categoria *</label>
-                        <select id="task-category" required>
-                            <option value="">Seleziona categoria</option>
-                            <option value="Lavoro">Lavoro</option>
-                            <option value="Personale">Personale</option>
-                            <option value="Salute">Salute</option>
-                            <option value="Finanze">Finanze</option>
-                            <option value="Casa">Casa</option>
-                            <option value="Hobby">Hobby</option>
-                            <option value="Studio">Studio</option>
-                            <option value="Sport">Sport</option>
-                            <option value="Famiglia">Famiglia</option>
-                            <option value="Progetti">Progetti</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Viaggi">Viaggi</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="task-priority">Priorità *</label>
-                        <select id="task-priority" required>
-                            <option value="bassa">Bassa</option>
-                            <option value="media" selected>Media</option>
-                            <option value="alta">Alta</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="task-project">Progetto (opzionale)</label>
-                    <select id="task-project">
-                        <option value="">Nessun progetto</option>
-                        <!-- Popolato dinamicamente -->
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="task-due-date">Data di scadenza</label>
-                    <input type="date" id="task-due-date">
-                </div>
-
-                <div class="form-group">
-                    <label for="task-notes">Note</label>
-                    <textarea id="task-notes" rows="4" placeholder="Aggiungi dettagli o note..."></textarea>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="btn-cancel-task">Annulla</button>
-                    <button type="submit" class="btn-primary">Salva Task</button>
-                </div>
-            </form>
+            <div class="modal-body" id="modalBody">
+                <!-- Modal content will be loaded here -->
+            </div>
         </div>
     </div>
-
-    <!-- Modal Project -->
-    <div class="modal" id="project-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="project-modal-title">Nuovo Progetto</h2>
-                <button class="btn-close" id="btn-close-project-modal">&times;</button>
-            </div>
-            <form id="project-form">
-                <div class="form-group">
-                    <label for="project-name">Nome Progetto *</label>
-                    <input type="text" id="project-name" required placeholder="Es. Ristrutturazione Casa">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="project-category">Categoria *</label>
-                        <select id="project-category" required>
-                            <option value="">Seleziona categoria</option>
-                            <option value="Lavoro">Lavoro</option>
-                            <option value="Personale">Personale</option>
-                            <option value="Salute">Salute</option>
-                            <option value="Finanze">Finanze</option>
-                            <option value="Casa">Casa</option>
-                            <option value="Hobby">Hobby</option>
-                            <option value="Studio">Studio</option>
-                            <option value="Sport">Sport</option>
-                            <option value="Famiglia">Famiglia</option>
-                            <option value="Progetti">Progetti</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Viaggi">Viaggi</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="project-status">Stato</label>
-                        <select id="project-status">
-                            <option value="planning">In Pianificazione</option>
-                            <option value="active" selected>Attivo</option>
-                            <option value="paused">In Pausa</option>
-                            <option value="completed">Completato</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="project-description">Descrizione</label>
-                    <textarea id="project-description" rows="4" placeholder="Descrivi il progetto..."></textarea>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="project-start-date">Data Inizio</label>
-                        <input type="date" id="project-start-date">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="project-end-date">Data Fine Prevista</label>
-                        <input type="date" id="project-end-date">
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="btn-cancel-project">Annulla</button>
-                    <button type="submit" class="btn-primary">Salva Progetto</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal Note -->
-    <div class="modal" id="note-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="note-modal-title">Nuova Nota</h2>
-                <button class="btn-close" id="btn-close-note-modal">&times;</button>
-            </div>
-            <form id="note-form">
-                <div class="form-group">
-                    <label for="note-title">Titolo *</label>
-                    <input type="text" id="note-title" required placeholder="Es. Idee per il progetto">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="note-category">Categoria</label>
-                        <select id="note-category">
-                            <option value="">Nessuna categoria</option>
-                            <option value="Lavoro">Lavoro</option>
-                            <option value="Personale">Personale</option>
-                            <option value="Salute">Salute</option>
-                            <option value="Finanze">Finanze</option>
-                            <option value="Casa">Casa</option>
-                            <option value="Hobby">Hobby</option>
-                            <option value="Studio">Studio</option>
-                            <option value="Sport">Sport</option>
-                            <option value="Famiglia">Famiglia</option>
-                            <option value="Progetti">Progetti</option>
-                            <option value="Shopping">Shopping</option>
-                            <option value="Viaggi">Viaggi</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="note-project">Progetto</label>
-                        <select id="note-project">
-                            <option value="">Nessun progetto</option>
-                            <!-- Popolato dinamicamente -->
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="note-content">Contenuto *</label>
-                    <textarea id="note-content" rows="10" required placeholder="Scrivi qui i tuoi appunti..."></textarea>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="btn-cancel-note">Annulla</button>
-                    <button type="submit" class="btn-primary">Salva Nota</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" id="mobile-menu-toggle">
-        ☰
-    </button>
-
-    <!-- Mobile Overlay -->
-    <div class="mobile-overlay" id="mobile-overlay"></div>
 
     <script src="app.js"></script>
 </body>
