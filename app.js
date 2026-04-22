@@ -2,7 +2,25 @@
 // CONFIGURAZIONE
 // ============================================================================
 
-const API_URL = 'http://localhost:5000/api';
+// Rileva automaticamente l'ambiente
+const API_URL = (() => {
+    const hostname = window.location.hostname;
+
+    // Se accedi da localhost, usa localhost
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+    }
+
+    // Se accedi da IP Tailscale, usa lo stesso IP per l'API
+    if (hostname.startsWith('100.')) {
+        return `http://${hostname}:5000/api`;
+    }
+
+    // Fallback: usa localhost
+    return 'http://localhost:5000/api';
+})();
+
+console.log('🔧 API URL:', API_URL);;
 
 // Stato dell'applicazione
 let state = {
