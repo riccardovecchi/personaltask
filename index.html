@@ -11,10 +11,27 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h1>Task Manager</h1>
+                <h1>📋 Task Manager</h1>
+                <button class="btn-backup" id="btn-backup" title="Scarica Backup">
+                    💾
+                </button>
             </div>
 
-            <div class="sidebar-section">
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-view="tasks">
+                    <span class="icon">✓</span> Task
+                </button>
+                <button class="nav-tab" data-view="projects">
+                    <span class="icon">📁</span> Progetti
+                </button>
+                <button class="nav-tab" data-view="notes">
+                    <span class="icon">📝</span> Note
+                </button>
+            </div>
+
+            <!-- Filtri Task -->
+            <div class="sidebar-section" id="filters-tasks">
                 <h3>Filtri</h3>
                 <button class="filter-btn active" data-filter="all">
                     <span class="icon">📋</span> Tutti i Task
@@ -30,47 +47,51 @@
                 </button>
             </div>
 
+            <!-- Categorie -->
             <div class="sidebar-section">
                 <h3>Categorie</h3>
-                <button class="category-btn" data-category="Lavoro">
-                    <span class="category-dot" style="background: #3b82f6;"></span> Lavoro
-                </button>
-                <button class="category-btn" data-category="Personale">
-                    <span class="category-dot" style="background: #8b5cf6;"></span> Personale
-                </button>
-                <button class="category-btn" data-category="Salute">
-                    <span class="category-dot" style="background: #10b981;"></span> Salute
-                </button>
-                <button class="category-btn" data-category="Finanze">
-                    <span class="category-dot" style="background: #f59e0b;"></span> Finanze
-                </button>
-                <button class="category-btn" data-category="Casa">
-                    <span class="category-dot" style="background: #ec4899;"></span> Casa
-                </button>
-                <button class="category-btn" data-category="Hobby">
-                    <span class="category-dot" style="background: #06b6d4;"></span> Hobby
-                </button>
-                <button class="category-btn" data-category="Studio">
-                    <span class="category-dot" style="background: #6366f1;"></span> Studio
-                </button>
-                <button class="category-btn" data-category="Sport">
-                    <span class="category-dot" style="background: #14b8a6;"></span> Sport
-                </button>
-                <button class="category-btn" data-category="Famiglia">
-                    <span class="category-dot" style="background: #f43f5e;"></span> Famiglia
-                </button>
-                <button class="category-btn" data-category="Progetti">
-                    <span class="category-dot" style="background: #a855f7;"></span> Progetti
-                </button>
-                <button class="category-btn" data-category="Shopping">
-                    <span class="category-dot" style="background: #eab308;"></span> Shopping
-                </button>
-                <button class="category-btn" data-category="Viaggi">
-                    <span class="category-dot" style="background: #0ea5e9;"></span> Viaggi
-                </button>
+                <div class="categories-list">
+                    <button class="category-btn" data-category="Lavoro">
+                        <span class="category-dot" style="background: #3b82f6;"></span> Lavoro
+                    </button>
+                    <button class="category-btn" data-category="Personale">
+                        <span class="category-dot" style="background: #8b5cf6;"></span> Personale
+                    </button>
+                    <button class="category-btn" data-category="Salute">
+                        <span class="category-dot" style="background: #10b981;"></span> Salute
+                    </button>
+                    <button class="category-btn" data-category="Finanze">
+                        <span class="category-dot" style="background: #f59e0b;"></span> Finanze
+                    </button>
+                    <button class="category-btn" data-category="Casa">
+                        <span class="category-dot" style="background: #ec4899;"></span> Casa
+                    </button>
+                    <button class="category-btn" data-category="Hobby">
+                        <span class="category-dot" style="background: #06b6d4;"></span> Hobby
+                    </button>
+                    <button class="category-btn" data-category="Studio">
+                        <span class="category-dot" style="background: #6366f1;"></span> Studio
+                    </button>
+                    <button class="category-btn" data-category="Sport">
+                        <span class="category-dot" style="background: #14b8a6;"></span> Sport
+                    </button>
+                    <button class="category-btn" data-category="Famiglia">
+                        <span class="category-dot" style="background: #f43f5e;"></span> Famiglia
+                    </button>
+                    <button class="category-btn" data-category="Progetti">
+                        <span class="category-dot" style="background: #a855f7;"></span> Progetti
+                    </button>
+                    <button class="category-btn" data-category="Shopping">
+                        <span class="category-dot" style="background: #eab308;"></span> Shopping
+                    </button>
+                    <button class="category-btn" data-category="Viaggi">
+                        <span class="category-dot" style="background: #0ea5e9;"></span> Viaggi
+                    </button>
+                </div>
             </div>
 
-            <div class="sidebar-section">
+            <!-- Priorità (solo per task) -->
+            <div class="sidebar-section" id="filters-priority">
                 <h3>Priorità</h3>
                 <button class="priority-btn" data-priority="alta">
                     <span class="priority-indicator high"></span> Alta
@@ -88,25 +109,42 @@
         <main class="main-content">
             <div class="top-bar">
                 <div class="search-container">
-                    <input type="text" id="search-input" placeholder="Cerca task..." class="search-input">
+                    <input type="text" id="search-input" placeholder="Cerca..." class="search-input">
                 </div>
-                <button class="btn-primary" id="btn-new-task">
-                    <span class="icon">+</span> Nuovo Task
+                <button class="btn-primary" id="btn-new-item">
+                    <span class="icon">+</span> <span id="btn-new-text">Nuovo Task</span>
                 </button>
             </div>
 
-            <div class="tasks-container" id="tasks-container">
-                <!-- I task verranno inseriti qui dinamicamente -->
+            <!-- Container Tasks -->
+            <div class="content-view active" id="view-tasks">
+                <div class="tasks-container" id="tasks-container">
+                    <!-- Tasks inseriti dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Container Projects -->
+            <div class="content-view" id="view-projects">
+                <div class="projects-container" id="projects-container">
+                    <!-- Projects inseriti dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Container Notes -->
+            <div class="content-view" id="view-notes">
+                <div class="notes-container" id="notes-container">
+                    <!-- Notes inserite dinamicamente -->
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal per creare/modificare task -->
+    <!-- Modal Task -->
     <div class="modal" id="task-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modal-title">Nuovo Task</h2>
-                <button class="btn-close" id="btn-close-modal">&times;</button>
+                <h2 id="task-modal-title">Nuovo Task</h2>
+                <button class="btn-close" id="btn-close-task-modal">&times;</button>
             </div>
             <form id="task-form">
                 <div class="form-group">
@@ -145,6 +183,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="task-project">Progetto (opzionale)</label>
+                    <select id="task-project">
+                        <option value="">Nessun progetto</option>
+                        <!-- Popolato dinamicamente -->
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label for="task-due-date">Data di scadenza</label>
                     <input type="date" id="task-due-date">
                 </div>
@@ -155,8 +201,132 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary" id="btn-cancel">Annulla</button>
-                    <button type="submit" class="btn-primary" id="btn-save">Salva Task</button>
+                    <button type="button" class="btn-secondary" id="btn-cancel-task">Annulla</button>
+                    <button type="submit" class="btn-primary">Salva Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Project -->
+    <div class="modal" id="project-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="project-modal-title">Nuovo Progetto</h2>
+                <button class="btn-close" id="btn-close-project-modal">&times;</button>
+            </div>
+            <form id="project-form">
+                <div class="form-group">
+                    <label for="project-name">Nome Progetto *</label>
+                    <input type="text" id="project-name" required placeholder="Es. Ristrutturazione Casa">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="project-category">Categoria *</label>
+                        <select id="project-category" required>
+                            <option value="">Seleziona categoria</option>
+                            <option value="Lavoro">Lavoro</option>
+                            <option value="Personale">Personale</option>
+                            <option value="Salute">Salute</option>
+                            <option value="Finanze">Finanze</option>
+                            <option value="Casa">Casa</option>
+                            <option value="Hobby">Hobby</option>
+                            <option value="Studio">Studio</option>
+                            <option value="Sport">Sport</option>
+                            <option value="Famiglia">Famiglia</option>
+                            <option value="Progetti">Progetti</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Viaggi">Viaggi</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="project-status">Stato</label>
+                        <select id="project-status">
+                            <option value="planning">In Pianificazione</option>
+                            <option value="active" selected>Attivo</option>
+                            <option value="paused">In Pausa</option>
+                            <option value="completed">Completato</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="project-description">Descrizione</label>
+                    <textarea id="project-description" rows="4" placeholder="Descrivi il progetto..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="project-start-date">Data Inizio</label>
+                        <input type="date" id="project-start-date">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="project-end-date">Data Fine Prevista</label>
+                        <input type="date" id="project-end-date">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancel-project">Annulla</button>
+                    <button type="submit" class="btn-primary">Salva Progetto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Note -->
+    <div class="modal" id="note-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="note-modal-title">Nuova Nota</h2>
+                <button class="btn-close" id="btn-close-note-modal">&times;</button>
+            </div>
+            <form id="note-form">
+                <div class="form-group">
+                    <label for="note-title">Titolo *</label>
+                    <input type="text" id="note-title" required placeholder="Es. Idee per il progetto">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="note-category">Categoria</label>
+                        <select id="note-category">
+                            <option value="">Nessuna categoria</option>
+                            <option value="Lavoro">Lavoro</option>
+                            <option value="Personale">Personale</option>
+                            <option value="Salute">Salute</option>
+                            <option value="Finanze">Finanze</option>
+                            <option value="Casa">Casa</option>
+                            <option value="Hobby">Hobby</option>
+                            <option value="Studio">Studio</option>
+                            <option value="Sport">Sport</option>
+                            <option value="Famiglia">Famiglia</option>
+                            <option value="Progetti">Progetti</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Viaggi">Viaggi</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="note-project">Progetto</label>
+                        <select id="note-project">
+                            <option value="">Nessun progetto</option>
+                            <!-- Popolato dinamicamente -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="note-content">Contenuto *</label>
+                    <textarea id="note-content" rows="10" required placeholder="Scrivi qui i tuoi appunti..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancel-note">Annulla</button>
+                    <button type="submit" class="btn-primary">Salva Nota</button>
                 </div>
             </form>
         </div>
