@@ -1,602 +1,559 @@
-/* ============================================================================
-   RESET E VARIABILI
-   ============================================================================ */
+Creerò un Task Manager personale completo con tutte le caratteristiche richieste. Sarà un'applicazione web moderna con design scuro e minimal, strutturata con file separati e un server Python per l'hosting locale.
 
+Perfetto! Ora creo tutti i file per il tuo Task Manager personale. Ecco la struttura completa:
+
+1. server.py - Server Python Flask
+#!/usr/bin/env python3
+"""
+Personal Task Manager Server
+Hosts a local task management application on 0.0.0.0:5000
+Accessible via local network or Tailscale
+"""
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+import json
+import os
+from datetime import datetime
+import uuid
+
+app = Flask(__name__, static_folder='.')
+CORS(app)
+
+# Data storage file
+DATA_FILE = 'taskmanager_data.json'
+
+# Initialize data structure
+def init_data():
+    return {
+        'areas': [],
+        'projects': [],
+        'tasks': [],
+        'notes': []
+    }
+
+# Load data from file
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return init_data()
+    return init_data()
+
+# Save data to file
+def save_data(data):
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+# Serve the main HTML file
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+# Serve static files
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory('.', path)
+
+# API: Get all data
+@app.route('/api/data', methods=['GET'])
+def get_data():
+    data = load_data()
+    return jsonify(data)
+
+# API: Create area
+@app.route('/api/areas', methods=['POST'])
+def create_area():
+    data = load_data()
+    area = request.json
+    area['id'] = str(uuid.uuid4())
+    area['created_at'] = datetime.now().isoformat()
+    data['areas'].append(area)
+    save_data(data)
+    return jsonify(area), 201
+
+# API: Update area
+@app.route('/api/areas/<area_id>', methods=['PUT'])
+def update_area(area_id):
+    data = load_data()
+    for area in data['areas']:
+        if area['id'] == area_id:
+            area.update(request.json)
+            area['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(area)
+    return jsonify({'error': 'Area not found'}), 404
+
+# API: Delete area
+@app.route('/api/areas/<area_id>', methods=['DELETE'])
+def delete_area(area_id):
+    data = load_data()
+    data['areas'] = [a for a in data['areas'] if a['id'] != area_id]
+    # Also delete related projects, tasks, and notes
+    data['projects'] = [p for p in data['projects'] if p.get('area_id') != area_id]
+    save_data(data)
+    return '', 204
+
+# API: Create project
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    data = load_data()
+    project = request.json
+    project['id'] = str(uuid.uuid4())
+    project['created_at'] = datetime.now().isoformat()
+    data['projects'].append(project)
+    save_data(data)
+    return jsonify(project), 201
+
+# API: Update project
+@app.route('/api/projects/<project_id>', methods=['PUT'])
+def update_project(project_id):
+    data = load_data()
+    for project in data['projects']:
+        if project['id'] == project_id:
+            project.update(request.json)
+            project['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(project)
+    return jsonify({'error': 'Project not found'}), 404
+
+# API: Delete project
+@app.route('/api/projects/<project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    data = load_data()
+    data['projects'] = [p for p in data['projects'] if p['id'] != project_id]
+    # Also delete related tasks
+    data['tasks'] = [t for t in data['tasks'] if t.get('project_id') != project_id]
+    save_data(data)
+    return '', 204
+
+# API: Create task
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    data = load_data()
+    task = request.json
+    task['id'] = str(uuid.uuid4())
+    task['created_at'] = datetime.now().isoformat()
+    task['completed'] = False
+    data['tasks'].append(task)
+    save_data(data)
+    return jsonify(task), 201
+
+# API: Update task
+@app.route('/api/tasks/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    data = load_data()
+    for task in data['tasks']:
+        if task['id'] == task_id:
+            task.update(request.json)
+            task['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(task)
+    return jsonify({'error': 'Task not found'}), 404
+
+# API: Delete task
+@app.route('/api/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    data = load_data()
+    data['tasks'] = [t for t in data['tasks'] if t['id'] != task_id]
+    save_data(data)
+    return '', 204
+
+# API: Create note
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    data = load_data()
+    note = request.json
+    note['id'] = str(uuid.uuid4())
+    note['created_at'] = datetime.now().isoformat()
+    data['notes'].append(note)
+    save_data(data)
+    return jsonify(note), 201
+
+# API: Update note
+@app.route('/api/notes/<note_id>', methods=['PUT'])
+def update_note(note_id):
+    data = load_data()
+    for note in data['notes']:
+        if note['id'] == note_id:
+            note.update(request.json)
+            note['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(note)
+    return jsonify({'error': 'Note not found'}), 404
+
+# API: Delete note
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    data = load_data()
+    data['notes'] = [n for n in data['notes'] if n['id'] != note_id]
+    save_data(data)
+    return '', 204
+
+if __name__ == '__main__':
+    print("=" * 60)
+    print("Personal Task Manager Server")
+    print("=" * 60)
+    print(f"Server starting on http://0.0.0.0:5000")
+    print(f"Access locally: http://localhost:5000")
+    print(f"Access on network: http://[your-local-ip]:5000")
+    print(f"Access via Tailscale: http://[your-tailscale-ip]:5000")
+    print("=" * 60)
+    app.run(host='0.0.0.0', port=5000, debug=True)
+2. index.html - Struttura HTML
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager Personale</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h1>Task Manager</h1>
+            <button class="btn-icon" id="addAreaBtn" title="Aggiungi Area">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="areas-list" id="areasList">
+            <!-- Areas will be dynamically loaded here -->
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="content-header">
+            <div class="header-info">
+                <h2 id="areaTitle">Seleziona un'area</h2>
+                <p id="areaDescription" class="text-muted"></p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="editAreaBtn" title="Modifica Area" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+                <button class="btn-icon" id="deleteAreaBtn" title="Elimina Area" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Grid -->
+        <div class="content-grid" id="contentGrid" style="display: none;">
+            <!-- Projects Section -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Progetti</h3>
+                    <button class="btn-add" id="addProjectBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuovo Progetto
+                    </button>
+                </div>
+                <div class="projects-list" id="projectsList">
+                    <!-- Projects will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Tasks Section -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Task</h3>
+                    <button class="btn-add" id="addTaskBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuovo Task
+                    </button>
+                </div>
+                <div class="tasks-list" id="tasksList">
+                    <!-- Tasks will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Notes Section -->
+            <section class="content-section full-width">
+                <div class="section-header">
+                    <h3>Note</h3>
+                    <button class="btn-add" id="addNoteBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nuova Nota
+                    </button>
+                </div>
+                <div class="notes-list" id="notesList">
+                    <!-- Notes will be loaded here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <h3>Benvenuto nel tuo Task Manager</h3>
+            <p>Inizia creando un'area della tua vita dalla sidebar</p>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal</h3>
+                <button class="btn-icon" id="closeModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Modal content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+3. style.css - Design scuro e moderno
+/* ===== CSS Variables ===== */
+:root {
+    --bg-primary: #0f0f0f;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #242424;
+    --bg-hover: #2a2a2a;
+
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --text-muted: #707070;
+
+    --accent-primary: #6366f1;
+    --accent-secondary: #8b5cf6;
+    --accent-hover: #7c3aed;
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --border-color: #2a2a2a;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    --transition: all 0.2s ease;
+}
+
+/* ===== Reset & Base ===== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-:root {
-    /* Colori dark professionali */
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #141414;
-    --bg-tertiary: #1e1e1e;
-    --bg-hover: #252525;
-    --bg-elevated: #2a2a2a;
-
-    /* Testo */
-    --text-primary: #ffffff;
-    --text-secondary: #b3b3b3;
-    --text-muted: #737373;
-
-    /* Accenti */
-    --accent-primary: #3b82f6;
-    --accent-primary-hover: #2563eb;
-    --accent-success: #10b981;
-    --accent-warning: #f59e0b;
-    --accent-danger: #ef4444;
-
-    /* Priorità */
-    --priority-high: #ef4444;
-    --priority-medium: #f59e0b;
-    --priority-low: #10b981;
-
-    /* Bordi */
-    --border-color: #2a2a2a;
-    --border-hover: #3a3a3a;
-    --border-radius-sm: 8px;
-    --border-radius: 12px;
-    --border-radius-lg: 16px;
-
-    /* Ombre */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
-
-    /* Transizioni */
-    --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ============================================================================
-   BASE
-   ============================================================================ */
-
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* ============================================================================
-   LAYOUT
-   ============================================================================ */
-
-.app-container {
     display: flex;
     height: 100vh;
-    width: 100%;
+    overflow: hidden;
 }
 
-/* ============================================================================
-   SIDEBAR
-   ============================================================================ */
-
+/* ===== Sidebar ===== */
 .sidebar {
     width: 280px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
-    overflow-y: auto;
-    padding: 20px 16px;
-    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-header h1 {
     font-size: 20px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #3b82f6, #06b6d4);
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
-.btn-backup {
-    width: 40px;
-    height: 40px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 18px;
+.areas-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.area-item {
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: var(--transition);
     display: flex;
     align-items: center;
-    justify-content: center;
-}
-
-.btn-backup:hover {
-    background: var(--accent-success);
-    border-color: var(--accent-success);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-/* Navigation Tabs */
-.nav-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    background: var(--bg-tertiary);
-    padding: 4px;
-    border-radius: 10px;
-    margin-bottom: 24px;
-}
-
-.nav-tab {
-    padding: 10px 8px;
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-
-.nav-tab:hover {
-    color: var(--text-primary);
-    background: var(--bg-hover);
-}
-
-.nav-tab.active {
-    background: var(--accent-primary);
-    color: white;
-}
-
-.nav-tab .icon {
-    font-size: 16px;
-}
-
-/* Sidebar Sections */
-.sidebar-section {
-    margin-bottom: 24px;
-}
-
-.sidebar-section h3 {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    padding: 0 8px;
-}
-
-/* Buttons */
-.filter-btn,
-.category-btn,
-.priority-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: transparent;
+    gap: 12px;
     border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition);
-    text-align: left;
-    margin-bottom: 4px;
 }
 
-.filter-btn:hover,
-.category-btn:hover,
-.priority-btn:hover {
+.area-item:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
+    border-color: var(--border-color);
 }
 
-.filter-btn.active,
-.category-btn.active,
-.priority-btn.active {
-    background: var(--bg-elevated);
-    color: var(--accent-primary);
-    border-color: var(--accent-primary);
-}
-
-.filter-btn .icon {
-    font-size: 16px;
-}
-
-.filter-btn .count {
-    margin-left: auto;
-    background: var(--bg-elevated);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 700;
-    min-width: 24px;
-    text-align: center;
-}
-
-.filter-btn.active .count {
-    background: var(--accent-primary);
-    color: white;
-}
-
-.category-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.priority-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    flex-shrink: 0;
-}
-
-.priority-indicator.high {
-    background: var(--priority-high);
-}
-
-.priority-indicator.medium {
-    background: var(--priority-medium);
-}
-
-.priority-indicator.low {
-    background: var(--priority-low);
-}
-
-.categories-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-/* ============================================================================
-   MAIN CONTENT
-   ============================================================================ */
-
-.main-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    background: var(--bg-primary);
-}
-
-.top-bar {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.search-container {
-    flex: 1;
-}
-
-.search-input {
-    width: 100%;
-    padding: 14px 18px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    color: var(--text-primary);
-    font-size: 15px;
-    transition: all var(--transition);
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: var(--accent-primary);
+.area-item.active {
     background: var(--bg-tertiary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-primary);
 }
 
-.search-input::placeholder {
-    color: var(--text-muted);
-}
-
-/* Content Views */
-.content-view {
-    display: none;
-}
-
-.content-view.active {
-    display: block;
-}
-
-/* ============================================================================
-   BUTTONS
-   ============================================================================ */
-
-.btn-primary,
-.btn-secondary {
-    padding: 14px 24px;
-    border: none;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-    display: inline-flex;
+.area-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.btn-primary {
-    background: var(--accent-primary);
-    color: white;
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-primary:hover {
-    background: var(--accent-primary-hover);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-secondary {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-    background: var(--bg-hover);
-}
-
-/* ============================================================================
-   CARDS
-   ============================================================================ */
-
-.tasks-container,
-.projects-container,
-.notes-container {
-    display: grid;
-    gap: 16px;
-}
-
-.task-card,
-.project-card,
-.note-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px;
-    transition: all var(--transition);
-    position: relative;
-}
-
-.task-card:hover,
-.project-card:hover,
-.note-card:hover {
-    border-color: var(--accent-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.task-card.completed {
-    opacity: 0.6;
-}
-
-.task-card.completed .task-title {
-    text-decoration: line-through;
-    color: var(--text-muted);
-}
-
-.task-header,
-.project-header,
-.note-header {
-    display: flex;
-    gap: 16px;
-}
-
-.task-checkbox {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--border-hover);
-    border-radius: 6px;
-    cursor: pointer;
+    font-size: 18px;
     flex-shrink: 0;
-    margin-top: 2px;
-    transition: all var(--transition);
-    background: var(--bg-tertiary);
-    position: relative;
 }
 
-.task-checkbox:hover {
-    border-color: var(--accent-primary);
-}
-
-.task-checkbox.checked {
-    background: var(--accent-success);
-    border-color: var(--accent-success);
-}
-
-.task-checkbox.checked::after {
-    content: '✓';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.task-content,
-.project-content,
-.note-content {
+.area-info {
     flex: 1;
     min-width: 0;
 }
 
-.task-title,
-.project-name,
-.note-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    line-height: 1.4;
-}
-
-.task-meta,
-.project-meta,
-.note-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.task-category,
-.project-category,
-.note-category,
-.task-priority,
-.project-status,
-.task-project-badge,
-.note-project-badge,
-.task-due-date {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.task-category,
-.project-category,
-.note-category {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-color);
-}
-
-.task-priority {
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.task-priority.alta {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--priority-high);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.task-priority.media {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--priority-medium);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.task-priority.bassa {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--priority-low);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.project-status {
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.project-status.planning {
-    background: rgba(168, 85, 247, 0.15);
-    color: #a855f7;
-    border: 1px solid rgba(168, 85, 247, 0.3);
-}
-
-.project-status.active {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--accent-success);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.project-status.paused {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--accent-warning);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.project-status.completed {
-    background: rgba(59, 130, 246, 0.15);
-    color: var(--accent-primary);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.task-project-badge,
-.note-project-badge {
-    background: rgba(59, 130, 246, 0.15);
-    color: var(--accent-primary);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.task-due-date,
-.project-dates {
-    color: var(--text-secondary);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-color);
-}
-
-.task-due-date.overdue {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--priority-high);
-    border-color: rgba(239, 68, 68, 0.3);
-}
-
-.task-notes,
-.project-description,
-.note-preview {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border-color);
+.area-name {
+    font-weight: 500;
     font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.note-preview {
-    max-height: 100px;
+.area-count {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ===== Main Content ===== */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
-.task-actions,
-.project-actions,
-.note-actions {
+.content-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-secondary);
 }
 
-.btn-icon {
-    padding: 8px 14px;
-    background: var(--bg-elevated);
+.header-info h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* ===== Content Grid ===== */
+.content-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    align-content: start;
+}
+
+.content-section {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 20px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+}
+
+.content-section.full-width {
+    grid-column: 1 / -1;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.section-header h3 {
+    font-size: 16px;
+    font-weight: 600;
     color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== Buttons ===== */
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
 }
 
 .btn-icon:hover {
@@ -604,16 +561,296 @@ body {
     color: var(--text-primary);
 }
 
-.btn-icon.delete:hover {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--priority-high);
-    border-color: var(--priority-high);
+.btn-add {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition);
 }
 
-/* ============================================================================
-   MODAL
-   ============================================================================ */
+.btn-add:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
 
+.btn-primary {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.btn-secondary {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+}
+
+.btn-danger {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--danger);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
+/* ===== Project Card ===== */
+.project-card {
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+}
+
+.project-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+}
+
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.project-name {
+    font-weight: 500;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.project-description {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.project-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.project-card:hover .project-actions {
+    opacity: 1;
+}
+
+.project-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+}
+
+/* ===== Task Item ===== */
+.task-item {
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: var(--transition);
+}
+
+.task-item:hover {
+    background: var(--bg-hover);
+}
+
+.task-item.completed {
+    opacity: 0.6;
+}
+
+.task-item.completed .task-title {
+    text-decoration: line-through;
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.task-checkbox:hover {
+    border-color: var(--accent-primary);
+}
+
+.task-checkbox.checked {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.task-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-title {
+    font-size: 14px;
+    font-weight: 400;
+    margin-bottom: 2px;
+}
+
+.task-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.task-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.task-item:hover .task-actions {
+    opacity: 1;
+}
+
+.task-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+}
+
+/* ===== Note Card ===== */
+.note-card {
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.note-card:hover {
+    border-color: var(--accent-primary);
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.note-title {
+    font-weight: 500;
+    font-size: 15px;
+}
+
+.note-content {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-height: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.note-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.note-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.note-card:hover .note-actions {
+    opacity: 1;
+}
+
+.note-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px;
+}
+
+.empty-state svg {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* ===== Modal ===== */
 .modal {
     display: none;
     position: fixed;
@@ -621,12 +858,11 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
     z-index: 1000;
     align-items: center;
     justify-content: center;
-    padding: 20px;
 }
 
 .modal.active {
@@ -635,150 +871,85 @@ body {
 
 .modal-content {
     background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    width: 100%;
-    max-width: 600px;
+    width: 90%;
+    max-width: 500px;
     max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.modal-body {
     padding: 24px;
-    border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    background: var(--bg-secondary);
-    z-index: 10;
+    overflow-y: auto;
 }
 
-.modal-header h2 {
-    font-size: 20px;
-    font-weight: 700;
-}
-
-.btn-close {
-    width: 36px;
-    height: 36px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
-    font-size: 24px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-}
-
-.btn-close:hover {
-    background: var(--accent-danger);
-    color: white;
-    border-color: var(--accent-danger);
-    transform: rotate(90deg);
-}
-
-/* ============================================================================
-   FORMS
-   ============================================================================ */
-
-form {
-    padding: 24px;
-}
-
+/* ===== Form Elements ===== */
 .form-group {
     margin-bottom: 20px;
 }
 
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-.form-group label {
+.form-label {
     display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
     margin-bottom: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
+.form-input,
+.form-textarea,
+.form-select {
     width: 100%;
-    padding: 14px 16px;
+    padding: 10px 14px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 14px;
     font-family: inherit;
-    transition: all var(--transition);
+    transition: var(--transition);
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
     outline: none;
     border-color: var(--accent-primary);
-    background: var(--bg-elevated);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-.form-group textarea {
+.form-textarea {
     resize: vertical;
     min-height: 100px;
-    line-height: 1.6;
 }
 
-.modal-actions {
+.form-actions {
     display: flex;
     gap: 12px;
     justify-content: flex-end;
     margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
 }
 
-/* ============================================================================
-   EMPTY STATE
-   ============================================================================ */
-
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-muted);
-}
-
-.empty-state-icon {
-    font-size: 64px;
-    margin-bottom: 16px;
-    opacity: 0.4;
-}
-
-.empty-state-text {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-secondary);
-}
-
-.empty-state-subtext {
-    font-size: 14px;
-}
-
-/* ============================================================================
-   SCROLLBAR
-   ============================================================================ */
-
+/* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -789,7 +960,7 @@ form {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-elevated);
+    background: var(--bg-tertiary);
     border-radius: 4px;
 }
 
@@ -797,192 +968,32 @@ form {
     background: var(--bg-hover);
 }
 
-/* ============================================================================
-   MOBILE MENU
-   ============================================================================ */
-
-.mobile-menu-toggle {
-    display: none;
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    background: var(--accent-primary);
-    border: none;
-    border-radius: 50%;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: var(--shadow-lg);
-    z-index: 999;
-    transition: all var(--transition);
-}
-
-.mobile-menu-toggle:active {
-    transform: scale(0.95);
-}
-
-.mobile-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
-    z-index: 99;
-}
-
-.mobile-overlay.active {
-    display: block;
-}
-
-/* ============================================================================
-   RESPONSIVE - MOBILE
-   ============================================================================ */
-
-@media (max-width: 768px) {
-    .app-container {
-        flex-direction: column;
-    }
-
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: -100%;
-        width: 85%;
-        max-width: 320px;
-        height: 100vh;
-        z-index: 100;
-        box-shadow: var(--shadow-xl);
-        transition: left 0.3s ease;
-    }
-
-    .sidebar.active {
-        left: 0;
-    }
-
-    .main-content {
-        padding: 16px;
-        padding-bottom: 100px;
-    }
-
-    .top-bar {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .btn-primary {
-        width: 100%;
-    }
-
-    .nav-tabs {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    .nav-tab {
-        font-size: 12px;
-        padding: 10px 6px;
-    }
-
-    .form-row {
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+    .content-grid {
         grid-template-columns: 1fr;
     }
 
-    .modal {
-        padding: 16px;
-    }
-
-    .modal-content {
-        max-height: 85vh;
-        border-radius: 12px;
-    }
-
-    .modal-actions {
-        flex-direction: column-reverse;
-    }
-
-    .modal-actions .btn-primary,
-    .modal-actions .btn-secondary {
-        width: 100%;
-    }
-
-    .mobile-menu-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .categories-list {
-        max-height: 200px;
-    }
-
-    .task-actions,
-    .project-actions,
-    .note-actions {
-        flex-wrap: wrap;
-    }
-
-    .btn-icon {
-        flex: 1;
-        min-width: 100px;
-        justify-content: center;
-    }
-
-    .task-card,
-    .project-card,
-    .note-card {
-        padding: 16px;
-    }
-
-    .task-title,
-    .project-name,
-    .note-title {
-        font-size: 16px;
+    .content-section.full-width {
+        grid-column: 1;
     }
 }
 
-/* iPhone X e successivi (notch) */
-@supports (padding: max(0px)) {
-    .sidebar,
-    .main-content {
-        padding-left: max(16px, env(safe-area-inset-left));
-        padding-right: max(16px, env(safe-area-inset-right));
-    }
-
-    .mobile-menu-toggle {
-        bottom: max(24px, calc(env(safe-area-inset-bottom) + 8px));
-        right: max(24px, env(safe-area-inset-right));
-    }
-}
-
-/* Tablet */
-@media (min-width: 769px) and (max-width: 1024px) {
+@media (max-width: 768px) {
     .sidebar {
         width: 240px;
     }
-}
 
-/* Large Desktop */
-@media (min-width: 1440px) {
-    .main-content {
-        max-width: 1400px;
-        margin: 0 auto;
+    .content-grid {
+        padding: 20px;
     }
 
-    .tasks-container,
-    .projects-container,
-    .notes-container {
-        grid-template-columns: repeat(2, 1fr);
+    .content-header {
+        padding: 20px;
     }
 }
 
-/* ============================================================================
-   ANIMATIONS
-   ============================================================================ */
-
+/* ===== Animations ===== */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -994,46 +1005,899 @@ form {
     }
 }
 
-@keyframes slideIn {
-    from {
-        transform: translateX(400px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
+.project-card,
+.task-item,
+.note-card {
+    animation: fadeIn 0.3s ease;
+}
+4. app.js - Logica JavaScript
+/**
+ * Personal Task Manager - Main Application Logic
+ * Handles all client-side interactions and API communication
+ */
+
+// ===== State Management =====
+const state = {
+    areas: [],
+    projects: [],
+    tasks: [],
+    notes: [],
+    currentAreaId: null
+};
+
+// ===== API Configuration =====
+const API_BASE = window.location.origin;
+
+// ===== API Functions =====
+async function fetchData() {
+    try {
+        const response = await fetch(`${API_BASE}/api/data`);
+        const data = await response.json();
+        state.areas = data.areas || [];
+        state.projects = data.projects || [];
+        state.tasks = data.tasks || [];
+        state.notes = data.notes || [];
+        renderAreas();
+        if (state.currentAreaId) {
+            renderAreaContent(state.currentAreaId);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
     }
 }
 
-@keyframes slideOut {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(400px);
-        opacity: 0;
+async function createArea(areaData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/areas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(areaData)
+        });
+        const area = await response.json();
+        state.areas.push(area);
+        renderAreas();
+        selectArea(area.id);
+        return area;
+    } catch (error) {
+        console.error('Error creating area:', error);
     }
 }
 
-/* Focus per accessibilità */
-*:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-}
-
-/* Print */
-@media print {
-    .sidebar,
-    .top-bar,
-    .task-actions,
-    .project-actions,
-    .note-actions,
-    .mobile-menu-toggle {
-        display: none !important;
-    }
-
-    .main-content {
-        padding: 0;
+async function updateArea(areaId, areaData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/areas/${areaId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(areaData)
+        });
+        const area = await response.json();
+        const index = state.areas.findIndex(a => a.id === areaId);
+        if (index !== -1) {
+            state.areas[index] = area;
+            renderAreas();
+            renderAreaContent(areaId);
+        }
+        return area;
+    } catch (error) {
+        console.error('Error updating area:', error);
     }
 }
+
+async function deleteArea(areaId) {
+    try {
+        await fetch(`${API_BASE}/api/areas/${areaId}`, { method: 'DELETE' });
+        state.areas = state.areas.filter(a => a.id !== areaId);
+        state.projects = state.projects.filter(p => p.area_id !== areaId);
+        state.currentAreaId = null;
+        renderAreas();
+        showEmptyState();
+    } catch (error) {
+        console.error('Error deleting area:', error);
+    }
+}
+
+async function createProject(projectData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData)
+        });
+        const project = await response.json();
+        state.projects.push(project);
+        renderProjects();
+        return project;
+    } catch (error) {
+        console.error('Error creating project:', error);
+    }
+}
+
+async function updateProject(projectId, projectData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData)
+        });
+        const project = await response.json();
+        const index = state.projects.findIndex(p => p.id === projectId);
+        if (index !== -1) {
+            state.projects[index] = project;
+            renderProjects();
+        }
+        return project;
+    } catch (error) {
+        console.error('Error updating project:', error);
+    }
+}
+
+async function deleteProject(projectId) {
+    try {
+        await fetch(`${API_BASE}/api/projects/${projectId}`, { method: 'DELETE' });
+        state.projects = state.projects.filter(p => p.id !== projectId);
+        state.tasks = state.tasks.filter(t => t.project_id !== projectId);
+        renderProjects();
+        renderTasks();
+    } catch (error) {
+        console.error('Error deleting project:', error);
+    }
+}
+
+async function createTask(taskData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        const task = await response.json();
+        state.tasks.push(task);
+        renderTasks();
+        return task;
+    } catch (error) {
+        console.error('Error creating task:', error);
+    }
+}
+
+async function updateTask(taskId, taskData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        const task = await response.json();
+        const index = state.tasks.findIndex(t => t.id === taskId);
+        if (index !== -1) {
+            state.tasks[index] = task;
+            renderTasks();
+        }
+        return task;
+    } catch (error) {
+        console.error('Error updating task:', error);
+    }
+}
+
+async function deleteTask(taskId) {
+    try {
+        await fetch(`${API_BASE}/api/tasks/${taskId}`, { method: 'DELETE' });
+        state.tasks = state.tasks.filter(t => t.id !== taskId);
+        renderTasks();
+    } catch (error) {
+        console.error('Error deleting task:', error);
+    }
+}
+
+async function createNote(noteData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(noteData)
+        });
+        const note = await response.json();
+        state.notes.push(note);
+        renderNotes();
+        return note;
+    } catch (error) {
+        console.error('Error creating note:', error);
+    }
+}
+
+async function updateNote(noteId, noteData) {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes/${noteId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(noteData)
+        });
+        const note = await response.json();
+        const index = state.notes.findIndex(n => n.id === noteId);
+        if (index !== -1) {
+            state.notes[index] = note;
+            renderNotes();
+        }
+        return note;
+    } catch (error) {
+        console.error('Error updating note:', error);
+    }
+}
+
+async function deleteNote(noteId) {
+    try {
+        await fetch(`${API_BASE}/api/notes/${noteId}`, { method: 'DELETE' });
+        state.notes = state.notes.filter(n => n.id !== noteId);
+        renderNotes();
+    } catch (error) {
+        console.error('Error deleting note:', error);
+    }
+}
+
+// ===== Render Functions =====
+function renderAreas() {
+    const areasList = document.getElementById('areasList');
+
+    if (state.areas.length === 0) {
+        areasList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                <p style="font-size: 13px;">Nessuna area creata</p>
+            </div>
+        `;
+        return;
+    }
+
+    areasList.innerHTML = state.areas.map(area => {
+        const projectCount = state.projects.filter(p => p.area_id === area.id).length;
+        const taskCount = state.tasks.filter(t => t.area_id === area.id).length;
+        const isActive = area.id === state.currentAreaId;
+
+        return `
+            <div class="area-item ${isActive ? 'active' : ''}" data-area-id="${area.id}">
+                <div class="area-icon" style="background: ${area.color || '#6366f1'}33;">
+                    ${area.icon || '📁'}
+                </div>
+                <div class="area-info">
+                    <div class="area-name">${area.name}</div>
+                    <div class="area-count">${projectCount} progetti · ${taskCount} task</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add click listeners
+    document.querySelectorAll('.area-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const areaId = item.dataset.areaId;
+            selectArea(areaId);
+        });
+    });
+}
+
+function selectArea(areaId) {
+    state.currentAreaId = areaId;
+    renderAreas();
+    renderAreaContent(areaId);
+}
+
+function renderAreaContent(areaId) {
+    const area = state.areas.find(a => a.id === areaId);
+    if (!area) return;
+
+    // Update header
+    document.getElementById('areaTitle').textContent = area.name;
+    document.getElementById('areaDescription').textContent = area.description || '';
+    document.getElementById('editAreaBtn').style.display = 'flex';
+    document.getElementById('deleteAreaBtn').style.display = 'flex';
+
+    // Show content grid, hide empty state
+    document.getElementById('contentGrid').style.display = 'grid';
+    document.getElementById('emptyState').style.display = 'none';
+
+    // Render content
+    renderProjects();
+    renderTasks();
+    renderNotes();
+}
+
+function renderProjects() {
+    const projectsList = document.getElementById('projectsList');
+    const areaProjects = state.projects.filter(p => p.area_id === state.currentAreaId);
+
+    if (areaProjects.length === 0) {
+        projectsList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                <p style="font-size: 13px;">Nessun progetto</p>
+            </div>
+        `;
+        return;
+    }
+
+    projectsList.innerHTML = areaProjects.map(project => {
+        const projectTasks = state.tasks.filter(t => t.project_id === project.id);
+        const completedTasks = projectTasks.filter(t => t.completed).length;
+
+        return `
+            <div class="project-card" data-project-id="${project.id}">
+                <div class="project-header">
+                    <div>
+                        <div class="project-name">${project.name}</div>
+                        ${project.description ? `<div class="project-description">${project.description}</div>` : ''}
+                        ${projectTasks.length > 0 ? `
+                            <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
+                                ${completedTasks}/${projectTasks.length} task completati
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="project-actions">
+                        <button class="btn-icon edit-project" data-project-id="${project.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button class="btn-icon delete-project" data-project-id="${project.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add event listeners
+    document.querySelectorAll('.edit-project').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectId = btn.dataset.projectId;
+            showEditProjectModal(projectId);
+        });
+    });
+
+    document.querySelectorAll('.delete-project').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectId = btn.dataset.projectId;
+            if (confirm('Sei sicuro di voler eliminare questo progetto?')) {
+                deleteProject(projectId);
+            }
+        });
+    });
+}
+
+function renderTasks() {
+    const tasksList = document.getElementById('tasksList');
+    const areaTasks = state.tasks.filter(t => t.area_id === state.currentAreaId);
+
+    if (areaTasks.length === 0) {
+        tasksList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                <p style="font-size: 13px;">Nessun task</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Sort: incomplete first, then by creation date
+    areaTasks.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    tasksList.innerHTML = areaTasks.map(task => {
+        const project = state.projects.find(p => p.id === task.project_id);
+
+        return `
+            <div class="task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+                <div class="task-checkbox ${task.completed ? 'checked' : ''}" data-task-id="${task.id}">
+                    ${task.completed ? `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    ` : ''}
+                </div>
+                <div class="task-content">
+                    <div class="task-title">${task.title}</div>
+                    ${project ? `<div class="task-meta">📁 ${project.name}</div>` : ''}
+                </div>
+                <div class="task-actions">
+                    <button class="btn-icon edit-task" data-task-id="${task.id}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
+                    <button class="btn-icon delete-task" data-task-id="${task.id}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add event listeners
+    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const taskId = checkbox.dataset.taskId;
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task) {
+                await updateTask(taskId, { completed: !task.completed });
+            }
+        });
+    });
+
+    document.querySelectorAll('.edit-task').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const taskId = btn.dataset.taskId;
+            showEditTaskModal(taskId);
+        });
+    });
+
+    document.querySelectorAll('.delete-task').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const taskId = btn.dataset.taskId;
+            if (confirm('Sei sicuro di voler eliminare questo task?')) {
+                deleteTask(taskId);
+            }
+        });
+    });
+}
+
+function renderNotes() {
+    const notesList = document.getElementById('notesList');
+    const areaNotes = state.notes.filter(n => n.area_id === state.currentAreaId);
+
+    if (areaNotes.length === 0) {
+        notesList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                <p style="font-size: 13px;">Nessuna nota</p>
+            </div>
+        `;
+        return;
+    }
+
+    notesList.innerHTML = areaNotes.map(note => {
+        const project = state.projects.find(p => p.id === note.project_id);
+
+        return `
+            <div class="note-card" data-note-id="${note.id}">
+                <div class="note-header">
+                    <div class="note-title">${note.title}</div>
+                    <div class="note-actions">
+                        <button class="btn-icon edit-note" data-note-id="${note.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button class="btn-icon delete-note" data-note-id="${note.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="note-content">${note.content}</div>
+                ${project ? `<div class="note-meta">📁 ${project.name}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Add event listeners
+    document.querySelectorAll('.edit-note').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const noteId = btn.dataset.noteId;
+            showEditNoteModal(noteId);
+        });
+    });
+
+    document.querySelectorAll('.delete-note').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const noteId = btn.dataset.noteId;
+            if (confirm('Sei sicuro di voler eliminare questa nota?')) {
+                deleteNote(noteId);
+            }
+        });
+    });
+}
+
+function showEmptyState() {
+    document.getElementById('contentGrid').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('areaTitle').textContent = 'Seleziona un\'area';
+    document.getElementById('areaDescription').textContent = '';
+    document.getElementById('editAreaBtn').style.display = 'none';
+    document.getElementById('deleteAreaBtn').style.display = 'none';
+}
+
+// ===== Modal Functions =====
+function showModal(title, content) {
+    const modal = document.getElementById('modal');
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = content;
+    modal.classList.add('active');
+}
+
+function hideModal() {
+    document.getElementById('modal').classList.remove('active');
+}
+
+function showAddAreaModal() {
+    const content = `
+        <form id="areaForm">
+            <div class="form-group">
+                <label class="form-label">Nome Area</label>
+                <input type="text" class="form-input" id="areaName" required placeholder="es. Lavoro, Personale, Salute...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="areaDescription" placeholder="Descrizione opzionale..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Icona</label>
+                <input type="text" class="form-input" id="areaIcon" placeholder="es. 💼, 🏠, 💪, 💰">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Colore</label>
+                <input type="color" class="form-input" id="areaColor" value="#6366f1">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Crea Area</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Nuova Area', content);
+
+    document.getElementById('areaForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const areaData = {
+            name: document.getElementById('areaName').value,
+            description: document.getElementById('areaDescription').value,
+            icon: document.getElementById('areaIcon').value,
+            color: document.getElementById('areaColor').value
+        };
+        await createArea(areaData);
+        hideModal();
+    });
+}
+
+function showEditAreaModal() {
+    const area = state.areas.find(a => a.id === state.currentAreaId);
+    if (!area) return;
+
+    const content = `
+        <form id="editAreaForm">
+            <div class="form-group">
+                <label class="form-label">Nome Area</label>
+                <input type="text" class="form-input" id="editAreaName" value="${area.name}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="editAreaDescription">${area.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Icona</label>
+                <input type="text" class="form-input" id="editAreaIcon" value="${area.icon || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Colore</label>
+                <input type="color" class="form-input" id="editAreaColor" value="${area.color || '#6366f1'}">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Salva Modifiche</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Modifica Area', content);
+
+    document.getElementById('editAreaForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const areaData = {
+            name: document.getElementById('editAreaName').value,
+            description: document.getElementById('editAreaDescription').value,
+            icon: document.getElementById('editAreaIcon').value,
+            color: document.getElementById('editAreaColor').value
+        };
+        await updateArea(state.currentAreaId, areaData);
+        hideModal();
+    });
+}
+
+function showAddProjectModal() {
+    const content = `
+        <form id="projectForm">
+            <div class="form-group">
+                <label class="form-label">Nome Progetto</label>
+                <input type="text" class="form-input" id="projectName" required placeholder="es. Nuovo sito web">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="projectDescription" placeholder="Descrizione opzionale..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Crea Progetto</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Nuovo Progetto', content);
+
+    document.getElementById('projectForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const projectData = {
+            name: document.getElementById('projectName').value,
+            description: document.getElementById('projectDescription').value,
+            area_id: state.currentAreaId
+        };
+        await createProject(projectData);
+        hideModal();
+    });
+}
+
+function showEditProjectModal(projectId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const content = `
+        <form id="editProjectForm">
+            <div class="form-group">
+                <label class="form-label">Nome Progetto</label>
+                <input type="text" class="form-input" id="editProjectName" value="${project.name}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="editProjectDescription">${project.description || ''}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Salva Modifiche</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Modifica Progetto', content);
+
+    document.getElementById('editProjectForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const projectData = {
+            name: document.getElementById('editProjectName').value,
+            description: document.getElementById('editProjectDescription').value
+        };
+        await updateProject(projectId, projectData);
+        hideModal();
+    });
+}
+
+function showAddTaskModal() {
+    const areaProjects = state.projects.filter(p => p.area_id === state.currentAreaId);
+
+    const content = `
+        <form id="taskForm">
+            <div class="form-group">
+                <label class="form-label">Titolo Task</label>
+                <input type="text" class="form-input" id="taskTitle" required placeholder="es. Completare il design">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Progetto (opzionale)</label>
+                <select class="form-select" id="taskProject">
+                    <option value="">Nessun progetto</option>
+                    ${areaProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="taskDescription" placeholder="Descrizione opzionale..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Crea Task</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Nuovo Task', content);
+
+    document.getElementById('taskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const taskData = {
+            title: document.getElementById('taskTitle').value,
+            description: document.getElementById('taskDescription').value,
+            area_id: state.currentAreaId,
+            project_id: document.getElementById('taskProject').value || null
+        };
+        await createTask(taskData);
+        hideModal();
+    });
+}
+
+function showEditTaskModal(taskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const areaProjects = state.projects.filter(p => p.area_id === state.currentAreaId);
+
+    const content = `
+        <form id="editTaskForm">
+            <div class="form-group">
+                <label class="form-label">Titolo Task</label>
+                <input type="text" class="form-input" id="editTaskTitle" value="${task.title}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Progetto (opzionale)</label>
+                <select class="form-select" id="editTaskProject">
+                    <option value="">Nessun progetto</option>
+                    ${areaProjects.map(p => `
+                        <option value="${p.id}" ${p.id === task.project_id ? 'selected' : ''}>
+                            ${p.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descrizione</label>
+                <textarea class="form-textarea" id="editTaskDescription">${task.description || ''}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Salva Modifiche</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Modifica Task', content);
+
+    document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const taskData = {
+            title: document.getElementById('editTaskTitle').value,
+            description: document.getElementById('editTaskDescription').value,
+            project_id: document.getElementById('editTaskProject').value || null
+        };
+        await updateTask(taskId, taskData);
+        hideModal();
+    });
+}
+
+function showAddNoteModal() {
+    const areaProjects = state.projects.filter(p => p.area_id === state.currentAreaId);
+
+    const content = `
+        <form id="noteForm">
+            <div class="form-group">
+                <label class="form-label">Titolo Nota</label>
+                <input type="text" class="form-input" id="noteTitle" required placeholder="es. Idee per il progetto">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Progetto (opzionale)</label>
+                <select class="form-select" id="noteProject">
+                    <option value="">Nessun progetto</option>
+                    ${areaProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contenuto</label>
+                <textarea class="form-textarea" id="noteContent" required placeholder="Scrivi qui la tua nota..." style="min-height: 150px;"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Crea Nota</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Nuova Nota', content);
+
+    document.getElementById('noteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const noteData = {
+            title: document.getElementById('noteTitle').value,
+            content: document.getElementById('noteContent').value,
+            area_id: state.currentAreaId,
+            project_id: document.getElementById('noteProject').value || null
+        };
+        await createNote(noteData);
+        hideModal();
+    });
+}
+
+function showEditNoteModal(noteId) {
+    const note = state.notes.find(n => n.id === noteId);
+    if (!note) return;
+
+    const areaProjects = state.projects.filter(p => p.area_id === state.currentAreaId);
+
+    const content = `
+        <form id="editNoteForm">
+            <div class="form-group">
+                <label class="form-label">Titolo Nota</label>
+                <input type="text" class="form-input" id="editNoteTitle" value="${note.title}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Progetto (opzionale)</label>
+                <select class="form-select" id="editNoteProject">
+                    <option value="">Nessun progetto</option>
+                    ${areaProjects.map(p => `
+                        <option value="${p.id}" ${p.id === note.project_id ? 'selected' : ''}>
+                            ${p.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contenuto</label>
+                <textarea class="form-textarea" id="editNoteContent" required style="min-height: 150px;">${note.content}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="hideModal()">Annulla</button>
+                <button type="submit" class="btn-primary">Salva Modifiche</button>
+            </div>
+        </form>
+    `;
+
+    showModal('Modifica Nota', content);
+
+    document.getElementById('editNoteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const noteData = {
+            title: document.getElementById('editNoteTitle').value,
+            content: document.getElementById('editNoteContent').value,
+            project_id: document.getElementById('editNoteProject').value || null
+        };
+        await updateNote(noteId, noteData);
+        hideModal();
+    });
+}
+
+// ===== Event Listeners =====
+document.addEventListener('DOMContentLoaded', () => {
+    // Load initial data
+    fetchData();
+
+    // Add Area button
+    document.getElementById('addAreaBtn').addEventListener('click', showAddAreaModal);
+
+    // Edit Area button
+    document.getElementById('editAreaBtn').addEventListener('click', showEditAreaModal);
+
+    // Delete Area button
+    document.getElementById('deleteAreaBtn').addEventListener('click', () => {
+        if (confirm('Sei sicuro di voler eliminare questa area? Verranno eliminati anche tutti i progetti, task e note associati.')) {
+            deleteArea(state.currentAreaId);
+        }
+    });
+
+    // Add Project button
+    document.getElementById('addProjectBtn').addEventListener('click', showAddProjectModal);
+
+    // Add Task button
+    document.getElementById('addTaskBtn').addEventListener('click', showAddTaskModal);
+
+    // Add Note button
+    document.getElementById('addNoteBtn').addEventListener('click', showAddNoteModal);
+
+    // Close modal
+    document.getElementById('closeModal').addEventListener('click', hideModal);
+
+    // Close modal on backdrop click
+    document.getElementById('modal').addEventListener('click', (e) => {
+        if (e.target.id === 'modal') {
+            hideModal();
+        }
+    });
+});
