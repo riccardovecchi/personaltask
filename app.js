@@ -2,25 +2,25 @@
 // CONFIGURAZIONE
 // ============================================================================
 
-// Rileva automaticamente l'ambiente
+// Configurazione automatica dell'API URL
 const API_URL = (() => {
     const hostname = window.location.hostname;
+    const port = 5000;
 
-    // Se accedi da localhost, usa localhost
+    console.log('🌐 Hostname rilevato:', hostname);
+
+    // Accesso locale (sul Mac stesso)
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:5000/api';
+        console.log('📍 Modalità: Locale');
+        return `http://localhost:${port}/api`;
     }
 
-    // Se accedi da IP Tailscale, usa lo stesso IP per l'API
-    if (hostname.startsWith('100.')) {
-        return `http://${hostname}:5000/api`;
-    }
-
-    // Fallback: usa localhost
-    return 'http://localhost:5000/api';
+    // Accesso via IP Tailscale o altro IP
+    console.log('🔒 Modalità: Remoto');
+    return `http://${hostname}:${port}/api`;
 })();
 
-console.log('🔧 API URL:', API_URL);;
+console.log('🔧 API URL configurato:', API_URL);
 
 // Stato dell'applicazione
 let state = {
@@ -121,6 +121,39 @@ function initEventListeners() {
             }
         });
     });
+
+    // Mobile menu toggle
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const mobileOverlay = document.getElementById('mobile-overlay');
+    const sidebar = document.querySelector('.sidebar');
+
+    if (mobileMenuToggle) {
+        mobileMenuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            mobileOverlay.classList.toggle('active');
+
+            // Cambia icona
+            mobileMenuToggle.textContent = sidebar.classList.contains('active') ? '✕' : '☰';
+        });
+
+        mobileOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            mobileOverlay.classList.remove('active');
+            mobileMenuToggle.textContent = '☰';
+        });
+
+        // Chiudi menu quando si seleziona una categoria/filtro
+        document.querySelectorAll('.filter-btn, .category-btn, .priority-btn, .nav-tab').forEach(btn => {
+            const originalClickHandler = btn.onclick;
+            btn.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                    mobileOverlay.classList.remove('active');
+                    mobileMenuToggle.textContent = '☰';
+                }
+            });
+        });
+    }
 }
 
 // ============================================================================
@@ -154,8 +187,8 @@ function switchView(view) {
     const filtersPriority = document.getElementById('filters-priority');
 
     if (view === 'tasks') {
-        filtersTask.style.display = 'block';
-        filtersPriority.style.display = 'block';
+        filtersTask.style.display = 'flex';
+        filtersPriority.style.display = 'flex';
     } else {
         filtersTask.style.display = 'none';
         filtersPriority.style.display = 'none';
@@ -956,11 +989,11 @@ function showSuccess(message) {
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #10b981;
+        background: linear-gradient(135deg, #10b981, #059669);
         color: white;
         padding: 16px 24px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         z-index: 10000;
         font-weight: 600;
         animation: slideIn 0.3s ease;
@@ -999,4 +1032,3 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
