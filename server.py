@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime
 import shutil
+import socket
 
 app = Flask(__name__)
 CORS(app)
@@ -63,6 +64,17 @@ def create_backup():
             os.remove(os.path.join(BACKUP_DIR, old_backup))
 
     return backup_file
+
+def get_tailscale_ip():
+    """Ottieni IP Tailscale del dispositivo"""
+    try:
+        hostname = socket.gethostname()
+        ip_list = socket.gethostbyname_ex(hostname)[2]
+        # Tailscale usa IP che iniziano con 100.x.x.x
+        tailscale_ips = [ip for ip in ip_list if ip.startswith('100.')]
+        return tailscale_ips[0] if tailscale_ips else None
+    except:
+        return None
 
 # ============================================================================
 # ROUTES - Serve file statici
@@ -345,12 +357,23 @@ def export_data():
 if __name__ == '__main__':
     init_data_file()
 
+    tailscale_ip = get_tailscale_ip()
+
     print("\n" + "="*60)
     print("🚀 Task Manager Server Avviato")
     print("="*60)
-    print(f"\n📍 Accesso:")
+    print(f"\n📍 Accesso Locale:")
     print(f"   http://localhost:5000")
     print(f"   http://127.0.0.1:5000")
+
+    if tailscale_ip:
+        print(f"\n🔒 Accesso Tailscale:")
+        print(f"   http://{tailscale_ip}:5000")
+        print(f"   (Accessibile da tutti i tuoi dispositivi Tailscale)")
+    else:
+        print(f"\n⚠️  Tailscale IP non rilevato")
+        print(f"   Verifica che Tailscale sia attivo")
+
     print(f"\n📝 Dati salvati in: {os.path.abspath(DATA_FILE)}")
     print(f"💾 Backup salvati in: {os.path.abspath(BACKUP_DIR)}")
     print(f"\n✨ Funzionalità:")
@@ -358,6 +381,8 @@ if __name__ == '__main__':
     print(f"   • Progetti per organizzare i task")
     print(f"   • Note/Appunti collegabili")
     print(f"   • Backup automatico scaricabile")
+    print(f"   • Design responsive per mobile")
     print("="*60 + "\n")
 
-    app.run(debug=True, port=5000, host='127.0.0.1')
+    # ⚠️ IMPORTANTE: host='0.0.0.0' per accettare connessioni Tailscale
+    app.run(debug=True, port=5000, host='0.0.0.0')
