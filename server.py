@@ -1,388 +1,199 @@
-from flask import Flask, jsonify, request, send_from_directory, send_file
+#!/usr/bin/env python3
+"""
+Personal Task Manager Server
+Hosts a local task management application on 0.0.0.0:5000
+Accessible via local network or Tailscale
+"""
+
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import json
 import os
 from datetime import datetime
-import shutil
-import socket
+import uuid
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# File JSON per la persistenza dei dati
-DATA_FILE = 'data.json'
-BACKUP_DIR = 'backups'
+# Data storage file
+DATA_FILE = 'taskmanager_data.json'
 
-# Struttura dati iniziale
-INITIAL_DATA = {
-    'tasks': [],
-    'projects': [],
-    'notes': []
-}
+# Initialize data structure
+def init_data():
+    return {
+        'areas': [],
+        'projects': [],
+        'tasks': [],
+        'notes': []
+    }
 
-def init_data_file():
-    """Inizializza il file dati se non esiste"""
-    if not os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(INITIAL_DATA, f, ensure_ascii=False, indent=2)
+# Load data from file
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return init_data()
+    return init_data()
 
-    # Crea cartella backup
-    if not os.path.exists(BACKUP_DIR):
-        os.makedirs(BACKUP_DIR)
-
-def read_data():
-    """Leggi tutti i dati dal file JSON"""
-    try:
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            # Assicura che tutte le chiavi esistano
-            for key in INITIAL_DATA:
-                if key not in data:
-                    data[key] = []
-            return data
-    except:
-        return INITIAL_DATA.copy()
-
-def write_data(data):
-    """Scrivi i dati nel file JSON"""
+# Save data to file
+def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
-def create_backup():
-    """Crea un backup automatico"""
-    if not os.path.exists(DATA_FILE):
-        return None
-
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_file = os.path.join(BACKUP_DIR, f'backup_{timestamp}.json')
-    shutil.copy2(DATA_FILE, backup_file)
-
-    # Mantieni solo gli ultimi 10 backup
-    backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith('backup_')])
-    if len(backups) > 10:
-        for old_backup in backups[:-10]:
-            os.remove(os.path.join(BACKUP_DIR, old_backup))
-
-    return backup_file
-
-def get_tailscale_ip():
-    """Ottieni IP Tailscale del dispositivo"""
-    try:
-        hostname = socket.gethostname()
-        ip_list = socket.gethostbyname_ex(hostname)[2]
-        # Tailscale usa IP che iniziano con 100.x.x.x
-        tailscale_ips = [ip for ip in ip_list if ip.startswith('100.')]
-        return tailscale_ips[0] if tailscale_ips else None
-    except:
-        return None
-
-# ============================================================================
-# ROUTES - Serve file statici
-# ============================================================================
-
+# Serve the main HTML file
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
+# Serve static files
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory('.', path)
 
-# ============================================================================
-# API - Health Check
-# ============================================================================
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    data = read_data()
-    return jsonify({
-        'status': 'ok',
-        'message': 'Task Manager API is running',
-        'stats': {
-            'tasks': len(data['tasks']),
-            'projects': len(data['projects']),
-            'notes': len(data['notes'])
-        }
-    })
-
-# ============================================================================
-# API - TASKS
-# ============================================================================
-
-@app.route('/api/tasks', methods=['GET'])
-def get_tasks():
-    data = read_data()
-    return jsonify(data['tasks'])
-
-@app.route('/api/tasks/<int:task_id>', methods=['GET'])
-def get_task(task_id):
-    data = read_data()
-    task = next((t for t in data['tasks'] if t['id'] == task_id), None)
-    if task:
-        return jsonify(task)
-    return jsonify({'error': 'Task non trovato'}), 404
-
-@app.route('/api/tasks', methods=['POST'])
-def create_task():
-    data = read_data()
-    new_task = request.json
-
-    # Genera nuovo ID
-    new_id = max([t['id'] for t in data['tasks']], default=0) + 1
-    new_task['id'] = new_id
-    new_task['created_at'] = datetime.now().isoformat()
-    new_task['updated_at'] = datetime.now().isoformat()
-    new_task['completed'] = False
-
-    data['tasks'].append(new_task)
-    write_data(data)
-
-    return jsonify(new_task), 201
-
-@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
-def update_task(task_id):
-    data = read_data()
-    task_index = next((i for i, t in enumerate(data['tasks']) if t['id'] == task_id), None)
-
-    if task_index is not None:
-        updated_task = request.json
-        updated_task['id'] = task_id
-        updated_task['updated_at'] = datetime.now().isoformat()
-        # Mantieni created_at originale
-        updated_task['created_at'] = data['tasks'][task_index]['created_at']
-        data['tasks'][task_index] = updated_task
-        write_data(data)
-        return jsonify(updated_task)
-
-    return jsonify({'error': 'Task non trovato'}), 404
-
-@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
-def delete_task(task_id):
-    data = read_data()
-    task_index = next((i for i, t in enumerate(data['tasks']) if t['id'] == task_id), None)
-
-    if task_index is not None:
-        deleted_task = data['tasks'].pop(task_index)
-        write_data(data)
-        return jsonify({'message': 'Task eliminato', 'task': deleted_task})
-
-    return jsonify({'error': 'Task non trovato'}), 404
-
-@app.route('/api/tasks/<int:task_id>/toggle', methods=['PATCH'])
-def toggle_task(task_id):
-    data = read_data()
-    task_index = next((i for i, t in enumerate(data['tasks']) if t['id'] == task_id), None)
-
-    if task_index is not None:
-        data['tasks'][task_index]['completed'] = not data['tasks'][task_index]['completed']
-        data['tasks'][task_index]['updated_at'] = datetime.now().isoformat()
-        write_data(data)
-        return jsonify(data['tasks'][task_index])
-
-    return jsonify({'error': 'Task non trovato'}), 404
-
-# ============================================================================
-# API - PROJECTS
-# ============================================================================
-
-@app.route('/api/projects', methods=['GET'])
-def get_projects():
-    data = read_data()
-    return jsonify(data['projects'])
-
-@app.route('/api/projects/<int:project_id>', methods=['GET'])
-def get_project(project_id):
-    data = read_data()
-    project = next((p for p in data['projects'] if p['id'] == project_id), None)
-    if project:
-        return jsonify(project)
-    return jsonify({'error': 'Progetto non trovato'}), 404
-
-@app.route('/api/projects', methods=['POST'])
-def create_project():
-    data = read_data()
-    new_project = request.json
-
-    # Genera nuovo ID
-    new_id = max([p['id'] for p in data['projects']], default=0) + 1
-    new_project['id'] = new_id
-    new_project['created_at'] = datetime.now().isoformat()
-    new_project['updated_at'] = datetime.now().isoformat()
-
-    data['projects'].append(new_project)
-    write_data(data)
-
-    return jsonify(new_project), 201
-
-@app.route('/api/projects/<int:project_id>', methods=['PUT'])
-def update_project(project_id):
-    data = read_data()
-    project_index = next((i for i, p in enumerate(data['projects']) if p['id'] == project_id), None)
-
-    if project_index is not None:
-        updated_project = request.json
-        updated_project['id'] = project_id
-        updated_project['updated_at'] = datetime.now().isoformat()
-        updated_project['created_at'] = data['projects'][project_index]['created_at']
-        data['projects'][project_index] = updated_project
-        write_data(data)
-        return jsonify(updated_project)
-
-    return jsonify({'error': 'Progetto non trovato'}), 404
-
-@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
-def delete_project(project_id):
-    data = read_data()
-    project_index = next((i for i, p in enumerate(data['projects']) if p['id'] == project_id), None)
-
-    if project_index is not None:
-        deleted_project = data['projects'].pop(project_index)
-        write_data(data)
-        return jsonify({'message': 'Progetto eliminato', 'project': deleted_project})
-
-    return jsonify({'error': 'Progetto non trovato'}), 404
-
-# ============================================================================
-# API - NOTES
-# ============================================================================
-
-@app.route('/api/notes', methods=['GET'])
-def get_notes():
-    data = read_data()
-    return jsonify(data['notes'])
-
-@app.route('/api/notes/<int:note_id>', methods=['GET'])
-def get_note(note_id):
-    data = read_data()
-    note = next((n for n in data['notes'] if n['id'] == note_id), None)
-    if note:
-        return jsonify(note)
-    return jsonify({'error': 'Nota non trovata'}), 404
-
-@app.route('/api/notes', methods=['POST'])
-def create_note():
-    data = read_data()
-    new_note = request.json
-
-    # Genera nuovo ID
-    new_id = max([n['id'] for n in data['notes']], default=0) + 1
-    new_note['id'] = new_id
-    new_note['created_at'] = datetime.now().isoformat()
-    new_note['updated_at'] = datetime.now().isoformat()
-
-    data['notes'].append(new_note)
-    write_data(data)
-
-    return jsonify(new_note), 201
-
-@app.route('/api/notes/<int:note_id>', methods=['PUT'])
-def update_note(note_id):
-    data = read_data()
-    note_index = next((i for i, n in enumerate(data['notes']) if n['id'] == note_id), None)
-
-    if note_index is not None:
-        updated_note = request.json
-        updated_note['id'] = note_id
-        updated_note['updated_at'] = datetime.now().isoformat()
-        updated_note['created_at'] = data['notes'][note_index]['created_at']
-        data['notes'][note_index] = updated_note
-        write_data(data)
-        return jsonify(updated_note)
-
-    return jsonify({'error': 'Nota non trovata'}), 404
-
-@app.route('/api/notes/<int:note_id>', methods=['DELETE'])
-def delete_note(note_id):
-    data = read_data()
-    note_index = next((i for i, n in enumerate(data['notes']) if n['id'] == note_id), None)
-
-    if note_index is not None:
-        deleted_note = data['notes'].pop(note_index)
-        write_data(data)
-        return jsonify({'message': 'Nota eliminata', 'note': deleted_note})
-
-    return jsonify({'error': 'Nota non trovata'}), 404
-
-# ============================================================================
-# API - BACKUP
-# ============================================================================
-
-@app.route('/api/backup', methods=['GET'])
-def download_backup():
-    """Scarica un backup completo dei dati"""
-    try:
-        backup_file = create_backup()
-        if backup_file:
-            return send_file(
-                backup_file,
-                as_attachment=True,
-                download_name=f'task_manager_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
-                mimetype='application/json'
-            )
-        else:
-            return jsonify({'error': 'Nessun dato da salvare'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/backup/restore', methods=['POST'])
-def restore_backup():
-    """Ripristina da un backup"""
-    try:
-        backup_data = request.json
-
-        # Valida la struttura
-        if not all(key in backup_data for key in ['tasks', 'projects', 'notes']):
-            return jsonify({'error': 'Formato backup non valido'}), 400
-
-        # Crea backup prima di sovrascrivere
-        create_backup()
-
-        # Ripristina i dati
-        write_data(backup_data)
-
-        return jsonify({'message': 'Backup ripristinato con successo'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/export', methods=['GET'])
-def export_data():
-    """Esporta tutti i dati in formato JSON"""
-    data = read_data()
+# API: Get all data
+@app.route('/api/data', methods=['GET'])
+def get_data():
+    data = load_data()
     return jsonify(data)
 
-# ============================================================================
-# MAIN
-# ============================================================================
+# API: Create area
+@app.route('/api/areas', methods=['POST'])
+def create_area():
+    data = load_data()
+    area = request.json
+    area['id'] = str(uuid.uuid4())
+    area['created_at'] = datetime.now().isoformat()
+    data['areas'].append(area)
+    save_data(data)
+    return jsonify(area), 201
+
+# API: Update area
+@app.route('/api/areas/<area_id>', methods=['PUT'])
+def update_area(area_id):
+    data = load_data()
+    for area in data['areas']:
+        if area['id'] == area_id:
+            area.update(request.json)
+            area['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(area)
+    return jsonify({'error': 'Area not found'}), 404
+
+# API: Delete area
+@app.route('/api/areas/<area_id>', methods=['DELETE'])
+def delete_area(area_id):
+    data = load_data()
+    data['areas'] = [a for a in data['areas'] if a['id'] != area_id]
+    # Also delete related projects, tasks, and notes
+    data['projects'] = [p for p in data['projects'] if p.get('area_id') != area_id]
+    save_data(data)
+    return '', 204
+
+# API: Create project
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    data = load_data()
+    project = request.json
+    project['id'] = str(uuid.uuid4())
+    project['created_at'] = datetime.now().isoformat()
+    data['projects'].append(project)
+    save_data(data)
+    return jsonify(project), 201
+
+# API: Update project
+@app.route('/api/projects/<project_id>', methods=['PUT'])
+def update_project(project_id):
+    data = load_data()
+    for project in data['projects']:
+        if project['id'] == project_id:
+            project.update(request.json)
+            project['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(project)
+    return jsonify({'error': 'Project not found'}), 404
+
+# API: Delete project
+@app.route('/api/projects/<project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    data = load_data()
+    data['projects'] = [p for p in data['projects'] if p['id'] != project_id]
+    # Also delete related tasks
+    data['tasks'] = [t for t in data['tasks'] if t.get('project_id') != project_id]
+    save_data(data)
+    return '', 204
+
+# API: Create task
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    data = load_data()
+    task = request.json
+    task['id'] = str(uuid.uuid4())
+    task['created_at'] = datetime.now().isoformat()
+    task['completed'] = False
+    data['tasks'].append(task)
+    save_data(data)
+    return jsonify(task), 201
+
+# API: Update task
+@app.route('/api/tasks/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    data = load_data()
+    for task in data['tasks']:
+        if task['id'] == task_id:
+            task.update(request.json)
+            task['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(task)
+    return jsonify({'error': 'Task not found'}), 404
+
+# API: Delete task
+@app.route('/api/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    data = load_data()
+    data['tasks'] = [t for t in data['tasks'] if t['id'] != task_id]
+    save_data(data)
+    return '', 204
+
+# API: Create note
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    data = load_data()
+    note = request.json
+    note['id'] = str(uuid.uuid4())
+    note['created_at'] = datetime.now().isoformat()
+    data['notes'].append(note)
+    save_data(data)
+    return jsonify(note), 201
+
+# API: Update note
+@app.route('/api/notes/<note_id>', methods=['PUT'])
+def update_note(note_id):
+    data = load_data()
+    for note in data['notes']:
+        if note['id'] == note_id:
+            note.update(request.json)
+            note['updated_at'] = datetime.now().isoformat()
+            save_data(data)
+            return jsonify(note)
+    return jsonify({'error': 'Note not found'}), 404
+
+# API: Delete note
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    data = load_data()
+    data['notes'] = [n for n in data['notes'] if n['id'] != note_id]
+    save_data(data)
+    return '', 204
 
 if __name__ == '__main__':
-    init_data_file()
-
-    tailscale_ip = get_tailscale_ip()
-
-    print("\n" + "="*60)
-    print("🚀 Task Manager Server Avviato")
-    print("="*60)
-    print(f"\n📍 Accesso Locale:")
-    print(f"   http://localhost:5000")
-    print(f"   http://127.0.0.1:5000")
-
-    if tailscale_ip:
-        print(f"\n🔒 Accesso Tailscale:")
-        print(f"   http://{tailscale_ip}:5000")
-        print(f"   (Accessibile da tutti i tuoi dispositivi Tailscale)")
-    else:
-        print(f"\n⚠️  Tailscale IP non rilevato")
-        print(f"   Verifica che Tailscale sia attivo")
-
-    print(f"\n📝 Dati salvati in: {os.path.abspath(DATA_FILE)}")
-    print(f"💾 Backup salvati in: {os.path.abspath(BACKUP_DIR)}")
-    print(f"\n✨ Funzionalità:")
-    print(f"   • Task con priorità e scadenze")
-    print(f"   • Progetti per organizzare i task")
-    print(f"   • Note/Appunti collegabili")
-    print(f"   • Backup automatico scaricabile")
-    print(f"   • Design responsive per mobile")
-    print("="*60 + "\n")
-
-    # ⚠️ IMPORTANTE: host='0.0.0.0' per accettare connessioni Tailscale
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    print("=" * 60)
+    print("Personal Task Manager Server")
+    print("=" * 60)
+    print(f"Server starting on http://0.0.0.0:5000")
+    print(f"Access locally: http://localhost:5000")
+    print(f"Access on network: http://[your-local-ip]:5000")
+    print(f"Access via Tailscale: http://[your-tailscale-ip]:5000")
+    print("=" * 60)
+    app.run(host='0.0.0.0', port=5000, debug=True)
