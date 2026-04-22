@@ -507,7 +507,6 @@ function showEmptyState() {
     document.getElementById('editAreaBtn').style.display = 'none';
     document.getElementById('deleteAreaBtn').style.display = 'none';
 }
-
 // ===== Modal Functions =====
 function showModal(title, content) {
     const modal = document.getElementById('modal');
